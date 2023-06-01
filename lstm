@@ -1,0 +1,97 @@
+import numpy as np
+from tensorflow.keras.preprocessing.sequence import pad_sequences
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Embedding, LSTM, Dense
+from tensorflow.keras.preprocessing.text import Tokenizer
+
+# 텍스트 데이터와 레이블 준비
+texts = [
+    "이래서 여자는 게임을 하면 안된다",
+    "한남재기해",
+    "젠신병자들극혐",
+    "니네나라로좀돌아가라",
+    "틀니압수할게요",
+    "너도설마머구출신?",
+    "개독이나이슬람이나똑같지않냐",
+    "지잡나와서고생한다",
+    "진짜극혐이네요",
+    "남자여자모두응원합니다"
+] # 분류하려는 텍스트 문장들의 리스트
+labels = [
+    "Negative",
+    "Negative",
+    "Negative",
+    "Negative",
+    "Negative",
+    "Negative",
+    "Negative",
+    "Negative",
+    "Negative",
+    "Positive"
+] # 각 텍스트 문장에 대한 레이블(긍정/부정)
+
+# 최대 시퀀스 길이 설정
+max_length = 200
+
+# 텍스트를 정수 시퀀스로 변환
+tokenizer = Tokenizer()
+tokenizer.fit_on_texts(texts)
+sequences = tokenizer.texts_to_sequences(texts)
+
+# 시퀀스를 패딩하여 모든 시퀀스 길이를 동일하게 만듦
+padded_sequences = pad_sequences(sequences, maxlen=max_length)
+
+# 레이블을 원-핫 인코딩
+label_map = {'Positive': 1, 'Negative': 0}
+encoded_labels = [label_map[label] for label in labels]
+one_hot_labels = np.eye(2)[encoded_labels]
+
+# 훈련 데이터와 테스트 데이터 분리
+train_data = padded_sequences[:8] # 훈련에 사용할 데이터와 레이블
+train_labels = one_hot_labels[:8] # 훈련에 사용할 데이터와 레이블
+test_data = padded_sequences[8:] # 테스트에 사용할 데이터와 레이블
+test_labels = one_hot_labels[8:] # 테스트에 사용할 데이터와 레이블
+
+# 감성 분류 모델 생성
+model = Sequential() # Sequential 모델 객체를 생성하고, Embedding, LSTM, Dense 레이어를 추가하여 감성 분류 모델을 구축
+model.add(Embedding(input_dim=len(tokenizer.word_index) + 1, output_dim=100, input_length=max_length))
+model.add(LSTM(128))
+model.add(Dense(2, activation='softmax'))
+
+model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+
+# 모델 훈련
+model.fit(train_data, train_labels, epochs=10, batch_size=32)
+
+# 테스트 데이터로 모델 평가
+loss, accuracy = model.evaluate(test_data, test_labels)
+print(f"Test Loss: {loss:.4f}")
+print(f"Test Accuracy: {accuracy:.4f}")
+
+# 새로운 문장 분류
+new_texts = [
+    "여자에 대한 차별이 너무 심해",
+    "미쳤구나",
+    "모욕적이네",
+    "남에게 이래라저래라 하지마",
+    "응 싫어.",
+    "아니 엿먹어",
+    "그건 아니야~",
+    "열심히 하면 성공하거든",
+    "그렇긴 하지",
+    "응응 고마워~"
+]
+
+# 새로운 문장 예측
+new_sequences = tokenizer.texts_to_sequences(new_texts) # 새로운 문장들을 정수 시퀀스로 변환한 결과
+new_padded_sequences = pad_sequences(new_sequences, maxlen=max_length)
+predictions = model.predict(new_padded_sequences) # 모델을 사용하여 새로운 문장의 예측을 수행한 결과
+predicted_labels = [np.argmax(prediction) for prediction in predictions]
+labels_map = {1: 'Positive', 0: 'Negative'}
+predicted_labels = [labels_map[label] for label in predicted_labels] # 예측된 레이블을 원-핫 인코딩에서 다시 원래 레이블로 변환한 결과
+
+for text, label in zip(new_texts, predicted_labels):
+    print(f"Text: {text}")
+    print(f"Predicted Label: {label}")
+    print()
+# 이 코드는 텍스트 문장의 긍정/부정을 예측하기 위해 LSTM을 사용하는 간단한 감성 분류 모델을 구축한다. 훈련 데이터를 사용하여 모델을 훈련하고, 테스트 데이터로 모델을 평가한 후, 새로운 문장에 대한 예측을 수행 
